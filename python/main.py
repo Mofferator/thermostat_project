@@ -1,5 +1,7 @@
 from flask import Flask
 from flaskext.mysql import MySQL
+from flask import Blueprint, request, jsonify, make_response
+import json
 
 db = MySQL()
 
@@ -16,8 +18,34 @@ app.config['MYSQL_DATABASE_DB'] = 'Thermostat_Project'  # Change this to your DB
 db.init_app(app)
 
 @app.route('/')
-def home():
-	return("Hello World!!")
+def get_books():
+    # get a cursor object from the database
+    cursor = db.get_db().cursor()
 
+    sql = """
+    SELECT * FROM Device_Data;
+    """
+
+    # use cursor to get all data
+    cursor.execute(sql)
+
+    # grab the column headers from the returned data
+    column_headers = [x[0] for x in cursor.description]
+
+    # create an empty dictionary object to use in 
+    # putting column headers together with data
+    json_data = []
+
+    # fetch all the data from the cursor
+    theData = cursor.fetchall()
+
+    # for each of the rows, zip the data elements together with
+    # the column headers. 
+    for row in theData:
+        json_data.append(dict(zip(column_headers, row)))
+
+    return jsonify(json_data)
+
+	
 if __name__ == '__main__':
 	app.run(debug=True, host='0.0.0.0')

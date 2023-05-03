@@ -26,3 +26,24 @@ CREATE TABLE Device_Data (
 		ON DELETE RESTRICT
 );
 
+INSERT INTO Rooms (room_name) VALUES ('Living Room');
+INSERT INTO Rooms (room_name) VALUES ('Bedroom');
+INSERT INTO Rooms (room_name) VALUES ('Master Bedroom');
+
+INSERT INTO Devices (device_name, location) VALUES ("Device 1", 1);
+INSERT INTO Devices (device_name, location) VALUES ("Device 2", 2);
+INSERT INTO Devices (device_name, location) VALUES ("Device 3", 3);
+
+INSERT INTO Device_Data (device_id, date_info, temperature) VALUES (1, '2023-01-01 23:45:15', 21.55);
+INSERT INTO Device_Data (device_id, date_info, temperature) VALUES (1, '2023-01-01 23:46:15', 21.56);
+INSERT INTO Device_Data (device_id, date_info, temperature) VALUES (1, '2023-01-01 23:47:15', 21.57);
+INSERT INTO Device_Data (device_id, date_info, temperature) VALUES (1, '2023-01-01 23:48:15', 21.58);
+INSERT INTO Device_Data (device_id, date_info, temperature) VALUES (2, '2023-01-01 23:45:15', 20.55);
+INSERT INTO Device_Data (device_id, date_info, temperature) VALUES (2, '2023-01-01 23:46:15', 20.56);
+INSERT INTO Device_Data (device_id, date_info, temperature) VALUES (2, '2023-01-01 23:47:15', 20.57);
+INSERT INTO Device_Data (device_id, date_info, temperature) VALUES (2, '2023-01-01 23:48:15', 20.58);
+INSERT INTO Device_Data (device_id, date_info, temperature) VALUES (3, '2023-01-01 23:45:15', 22.55);
+INSERT INTO Device_Data (device_id, date_info, temperature) VALUES (3, '2023-01-01 23:46:15', 22.56);
+INSERT INTO Device_Data (device_id, date_info, temperature) VALUES (3, '2023-01-01 23:47:15', 22.57);
+INSERT INTO Device_Data (device_id, date_info, temperature) VALUES (3, '2023-01-01 23:48:15', 22.58);
+
