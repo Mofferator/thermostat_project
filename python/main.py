@@ -17,8 +17,8 @@ app.config['MYSQL_DATABASE_DB'] = 'Thermostat_Project'  # Change this to your DB
 # Initialize the database object with the settings above. 
 db.init_app(app)
 
-@app.route('/')
-def get_books():
+@app.route('/', methods=['GET'])
+def home():
     # get a cursor object from the database
     cursor = db.get_db().cursor()
 
@@ -46,6 +46,28 @@ def get_books():
 
     return jsonify(json_data)
 
-	
+@app.route('/', methods=['POST'])
+def add_data():
+
+    # get data from the POST request
+    data = request.get_json()
+
+    # create tuple of values from request
+    values = (data["device_id"], data["date_info"], data["temperature"])
+
+    # SQL statement to insert data into database
+    # event_id field is autopopulated by the SQL server on entry
+    sql = '''
+    INSERT INTO Device_Data (device_id, date_info, temperature)
+    VALUES (%s, %s, %s)
+    '''
+
+    # insert data into database
+    cursor = db.get_db().cursor()
+    cursor.execute(sql, values)
+    db.get_db().commit()
+
+    return "success" # placeholder return value
+    
 if __name__ == '__main__':
-	app.run(debug=True, host='0.0.0.0')
+    app.run(debug=True, host='0.0.0.0')
