@@ -2,3 +2,5 @@
 secrets/db_password.txt
 secrets/db_root_password.txt 
 __pycache__
+/Thermostat_Project_ESP32/.vscode/
+/Thermostat_Project_ESP32/src/secrets.h
