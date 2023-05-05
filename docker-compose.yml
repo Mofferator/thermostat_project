@@ -2,7 +2,8 @@ services:
   pythonapp:
     build: ./python/
     depends_on:
-      - mysql
+      mysql:
+        condition: service_healthy
     volumes: ['./python:/code', './secrets:/secrets'] 
     ports:
       - '80:5000'
@@ -19,6 +20,11 @@ services:
     secrets:
       - secret_db_pw
       - secret_db_root_pw
+    healthcheck:
+      test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 20s
+      retries: 10
 
 secrets:
   secret_db_pw:

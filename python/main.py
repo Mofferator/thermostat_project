@@ -1,26 +1,23 @@
 from flask import Flask
-from flaskext.mysql import MySQL
+import mysql.connector
 from flask import Blueprint, request, jsonify, make_response
 import json
 
-db = MySQL()
 
 app = Flask(__name__)
 
-# these are for the DB object to be able to connect to MySQL. 
-app.config['MYSQL_DATABASE_USER'] = 'root'
-app.config['MYSQL_DATABASE_PASSWORD'] = open('/secrets/db_root_password.txt').readline()
-app.config['MYSQL_DATABASE_HOST'] = 'mysql'
-app.config['MYSQL_DATABASE_PORT'] = 3306
-app.config['MYSQL_DATABASE_DB'] = 'Thermostat_Project'  # Change this to your DB name
+db = mysql.connector.connect(
+  host="mysql",
+  user="root",
+  password=open('/secrets/db_root_password.txt').readline(),
+  database='Thermostat_Project'
+)
 
-# Initialize the database object with the settings above. 
-db.init_app(app)
 
 @app.route('/', methods=['GET'])
 def home():
     # get a cursor object from the database
-    cursor = db.get_db().cursor()
+    cursor = db.cursor()
 
     sql = """
     SELECT * FROM Device_Data;
@@ -51,23 +48,61 @@ def add_data():
 
     # get data from the POST request
     data = request.get_json()
-
+    print(request)
     # create tuple of values from request
     values = (data["device_id"], data["date_info"], data["temperature"])
-
     # SQL statement to insert data into database
     # event_id field is autopopulated by the SQL server on entry
     sql = '''
     INSERT INTO Device_Data (device_id, date_info, temperature)
     VALUES (%s, %s, %s)
     '''
+    try:
+        # insert data into database
+        cursor = db.cursor()
+        cursor.execute(sql, values)
+        db.commit()
+        return jsonify({"msg":"success"})
+    except mysql.connector.IntegrityError as err:
+        return jsonify({"error":"UNKNOWN_DEVICE_ID"})
 
-    # insert data into database
-    cursor = db.get_db().cursor()
-    cursor.execute(sql, values)
-    db.get_db().commit()
-
-    return "success" # placeholder return value
     
+
+@app.route('/new_device/<mac>/', methods=['GET'])
+def add_device(mac):
+    values = (mac,)
+    insert_stmnt = '''
+    INSERT INTO Devices (mac_address)
+    VALUES (%s)
+    '''
+    
+    select_stmnt = f'''
+    SELECT device_id
+    FROM Devices
+    WHERE mac_address = "{mac}"
+    '''
+    cursor = db.cursor()
+    cursor.execute(select_stmnt.format(mac))
+    result = cursor.fetchall()
+    if len(result) != 0:
+        device_id = result[0][0]
+        print(f"Existing Device: {device_id} found with MAC: {mac}", flush=True)
+        return jsonify({"device_id":device_id})
+    else:
+        try:
+            cursor.execute(insert_stmnt, values)
+            db.commit()
+            cursor.execute(select_stmnt.format(mac))
+            device_id = cursor.fetchall()[0][0]
+            print(f"New device: {device_id} added with MAC: {mac}", flush=True)
+            return jsonify({"device_id":device_id})
+        except Exception as err:
+            print(err)
+            return jsonify({"error":str(err)})
+        
+
+    
+
+
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')
