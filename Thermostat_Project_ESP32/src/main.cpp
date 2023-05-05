@@ -2,7 +2,7 @@
 TODO: 
   Add date tracking from time servers
   Add actual temperature measurement
-
+    - fill out read_temperature() function
 */
 
 #include <Arduino.h>
@@ -102,45 +102,6 @@ int negotiate_device_id() {
   }
 }
 
-void send_data(float temperature) {
-  DynamicJsonDocument doc(1024);
-  doc["device_id"] = device_id;
-  doc["date_info"]   = "2023-05-04 06:40:00";
-  doc["temperature"] = temperature;
-
-  String payload;
-  serializeJsonPretty(doc, payload);
-  int content_len = measureJsonPretty(doc);
-
-  HTTPClient http;
-  http.begin(client, "http://" + HOST_NAME + "/");
-  http.addHeader("Content-Type", "application/json");
-  http.addHeader("Content-Length", String(content_len));
-
-  int resp = http.POST(payload);
-
-  Serial.print("Response Code: ");
-  Serial.println(resp);
-  payload = http.getString();
-  deserializeJson(doc, payload);
-  if (doc.containsKey("error")) {
-    Serial.print("Error: ");
-    String err = doc["error"];
-    if (err == "UNKNOWN_DEVICE_ID")
-    {
-      Serial.println("Unrecognized device ID, fetching new ID...");
-      device_id = negotiate_device_id();
-      write_int(device_id, device_id_addr);
-    }
-  }
-  else if (doc.containsKey("msg"))
-  {
-    String msg = doc["msg"];
-    Serial.println(msg);
-  }
-  
-}
-
 String FormatLocalTime(){
   struct tm timeinfo;
   if(!getLocalTime(&timeinfo)){
@@ -173,6 +134,49 @@ String FormatLocalTime(){
 String get_real_time() {
   configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
   return FormatLocalTime();
+}
+
+float read_temperature() {
+  return 20.0; // TODO: make this a real function
+}
+
+void send_data(float temperature) {
+  DynamicJsonDocument doc(1024);
+  doc["device_id"] = device_id;
+  doc["date_info"] = get_real_time();
+  doc["temperature"] = read_temperature();
+
+  String payload;
+  serializeJsonPretty(doc, payload);
+  int content_len = measureJsonPretty(doc);
+
+  HTTPClient http;
+  http.begin(client, "http://" + HOST_NAME + "/");
+  http.addHeader("Content-Type", "application/json");
+  http.addHeader("Content-Length", String(content_len));
+
+  int resp = http.POST(payload);
+
+  Serial.print("Response Code: ");
+  Serial.println(resp);
+  payload = http.getString();
+  deserializeJson(doc, payload);
+  if (doc.containsKey("error")) {
+    Serial.print("Error: ");
+    String err = doc["error"];
+    if (err == "UNKNOWN_DEVICE_ID")
+    {
+      Serial.println("Unrecognized device ID, fetching new ID...");
+      device_id = negotiate_device_id();
+      write_int(device_id, device_id_addr);
+    }
+  }
+  else if (doc.containsKey("msg"))
+  {
+    String msg = doc["msg"];
+    Serial.println(msg);
+  }
+  
 }
 
 void setup() {
