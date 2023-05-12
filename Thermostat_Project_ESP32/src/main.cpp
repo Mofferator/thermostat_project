@@ -15,6 +15,8 @@ TODO:
 
 #define EEPROM_SIZE 2
 
+unsigned long previous_millis = 0;
+
 ////////////////// WIFI DETAILS/////////////////
 const char* ssid = WIFI_SSID;
 const char* password = WIFI_PASS;
@@ -228,7 +230,13 @@ void setup() {
 }
 
 void loop() {
+  unsigned long current_time = millis();
 
+  if (current_time > previous_millis + 10000)
+  {
+    previous_millis = current_time;
+    send_data(20);
+  }
 }
 
 
