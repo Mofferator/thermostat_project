@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %} Devices {% endblock %}
+{% block content %}
+<div class="m-4">
+  <table class="table table-bordered">
+    <thead> 
+      <tr> 
+        <td>Device ID</td>
+        <td>Device Name</td>
+        <td>Room</td>
+        <td></td>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in table %}
+      <tr>
+        <td>{{row[0]}}</td>
+        <td>{{row[1]}}</td>
+        <td>{{row[2]}}</td>
+        <td><a type="button" class="btn btn-outline-success" href="/device/{{row[0]}}">View</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endblock %}
+</div>
