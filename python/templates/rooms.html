@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %} Rooms {% endblock %}
+{% block content %}
+{% for room in rooms %}
+<div class="card mb-3">
+  <div class="card-header">
+    {{room.iloc[0]["room_name"]}}
+  </div>
+  <div class="card-body">
+    <ul class="list-group list-group-flush">
+      {% for i in range(room.shape[0]) %}
+      <li class="list-group-item">
+        {{room.iloc[i]["device_name"]}}
+        <a href="/device/{{room.iloc[i]['device_id']}}" class="btn btn-primary float-right">View</a>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+</div>
+{% endfor %}
+{% endblock %}

@@ -17,21 +17,36 @@ db = mysql.connector.connect(
 @app.route('/', methods=['GET'])
 def home():
     sql = """
-    SELECT DV.device_id as device_id, DV.device_name as name, DT.temperature as current_temp, DT.event_id as most_recent_event_id
-    FROM Devices DV
-    LEFT JOIN Device_Data DT ON DV.device_id = DT.device_id
-    INNER JOIN (
-        SELECT device_id, max(event_id) event_id
-        FROM Device_Data
-        GROUP BY device_id
-        ) b on b.event_id = DT.event_id
-    GROUP BY DT.event_id
+    SELECT 
+        room_id, 
+        room_name, 
+        ROUND(AVG(current_temp),2) as avg_temp, 
+        COUNT(room_id) as num_devices,
+        MIN(c.last_updated) as last_updated
+    FROM Rooms
+    JOIN (
+        SELECT 
+            DV.device_id as device_id, 
+            DV.location as room, 
+            DV.device_name as name, 
+            DT.temperature as current_temp, 
+            DT.event_id as most_recent_event_id,
+            HOUR(TIMEDIFF(NOW(), DT.date_info)) as last_updated
+        FROM Devices DV
+        LEFT JOIN Device_Data DT ON DV.device_id = DT.device_id
+        INNER JOIN (
+            SELECT device_id, max(event_id) event_id
+            FROM Device_Data
+            GROUP BY device_id
+            ) b on b.event_id = DT.event_id
+        GROUP BY DT.event_id
+        ) c ON Rooms.room_id = c.room
+    GROUP BY room_id
     """
     df = pd.read_sql(sql, db)
+    print(df, flush=True)
 
-    device_list = [(df.iloc[i]["name"], df.iloc[i]["current_temp"]) for i in range(len(df))]
-
-    return render_template('home.html',  device_list=device_list)
+    return render_template('home.html',  df=df, num=len(df))
     
     
 @app.route('/', methods=['POST'])
@@ -82,7 +97,7 @@ def device(device_id):
 
     df = pd.read_sql(sql.format(device_id), db)
 
-    return render_template('home.html',  
+    return render_template('device.html',  
                             tables=[df.to_html(classes='data')], 
                             titles=df.columns.values)
 
@@ -90,14 +105,19 @@ def device(device_id):
 def room_list():
     sql = '''
     SELECT * 
-    FROM Rooms
-    WHERE room_id > 1
+    FROM Rooms R
+    JOIN Devices D ON D.location = R.room_id
+    #WHERE room_id > 1
     '''
     df = pd.read_sql(sql, db)
 
-    return render_template('home.html',  
-                            tables=[df.to_html(classes='data')], 
-                            titles=df.columns.values)
+    room_ids = df.room_id.unique()
+    rooms = []
+    for room in room_ids:
+        rooms.append(df[df["room_id"] == room])
+
+    return render_template('rooms.html',
+                            rooms=rooms)
 
 @app.route('/room/<room_id>/')
 def room(room_id):
@@ -144,7 +164,7 @@ def add_device(mac):
         except Exception as err:
             print(err)
             return jsonify({"error":str(err)})
-        
+
 
 def json_from_sql(stmnt):
     cursor = db.cursor()
