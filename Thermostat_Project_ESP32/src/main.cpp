@@ -11,11 +11,20 @@ TODO:
 #include <HTTPClient.h>
 #include <time.h>
 #include <ArduinoJson-v6.21.2.h>
+#include <ClosedCube_HDC1080.h>
 #include <secrets.h>
+#include <Measurement.h>
+#include <json.hpp>
+#include <stdexcept>
 
 #define EEPROM_SIZE 2
 
-unsigned long previous_millis = 0;
+////////////////// TEMP SENSOR /////////////////
+#define TEMP_SENSOR_ADDR 0x40 // I2C Address of the HDC1080
+#define HDC1080_SDA 13 // SDA line for the HDC1080
+#define HDC1080_SCL 14 // SCL line for the HDC1080
+ClosedCube_HDC1080 hdc1080;
+////////////////////////////////////////////////
 
 ////////////////// WIFI DETAILS/////////////////
 const char* ssid = WIFI_SSID;
@@ -47,9 +56,9 @@ const int ERROR_PIN = 2; // An LED to represent an error occurring
 
 
 //////////////////////// HTTP DETAILS ////////////////////////////
-int    HTTP_PORT   = 80;
+int    HTTP_PORT   = 55555;
 String HTTP_METHOD = "GET"; // or "POST"
-String HOST_NAME = "192.168.1.173"; // hostname of web server:
+String HOST_NAME = HOST; // hostname of web server:
 String PATH_NAME   = "/";
 //////////////////////////////////////////////////////////////////
 
@@ -142,15 +151,10 @@ float read_temperature() {
   return 20.0; // TODO: make this a real function
 }
 
-void send_data(float temperature) {
-  DynamicJsonDocument doc(1024);
-  doc["device_id"] = device_id;
-  doc["date_info"] = get_real_time();
-  doc["temperature"] = read_temperature();
-
-  String payload;
-  serializeJsonPretty(doc, payload);
-  int content_len = measureJsonPretty(doc);
+void send_data(nlohmann::json data) {
+  
+  const char* payload = to_string(data).c_str();
+  int content_len = std::strlen(payload);
 
   HTTPClient http;
   http.begin(client, "http://" + HOST_NAME + "/");
@@ -159,9 +163,11 @@ void send_data(float temperature) {
 
   int resp = http.POST(payload);
 
+  DynamicJsonDocument doc(1024);
+
   Serial.print("Response Code: ");
   Serial.println(resp);
-  payload = http.getString();
+  payload = http.getString().c_str();
   deserializeJson(doc, payload);
   if (doc.containsKey("error")) {
     Serial.print("Error: ");
@@ -187,6 +193,9 @@ void setup() {
   Serial.println("Attempting to connect to WPA network...");
   Serial.print("SSID: ");
   Serial.println(ssid);
+
+  Serial.println("Initializing HDC1080");
+  hdc1080.begin(TEMP_SENSOR_ADDR, HDC1080_SDA, HDC1080_SCL);
 
   status = WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) {
@@ -230,13 +239,9 @@ void setup() {
 }
 
 void loop() {
-  unsigned long current_time = millis();
-
-  if (current_time > previous_millis + 10000)
-  {
-    previous_millis = current_time;
-    send_data(20);
-  }
+  nlohmann::json j = Measurement(hdc1080, device_id).Serialize();
+  send_data(j);
+  delay(1000);
 }
 
 
