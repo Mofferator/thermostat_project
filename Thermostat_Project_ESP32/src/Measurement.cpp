@@ -2,16 +2,19 @@
 #include <string.h>
 
 Measurement::Measurement(ClosedCube_HDC1080& hdc1080, int device_id) {
-    while(!getLocalTime(&mTime)){
-        Serial.println("Failed to get time data, retrying...");
-    }
     mDevice_id = device_id;
     mTemperature_hdc = hdc1080.readT();
     mHumidity_hdc = hdc1080.readHumidity();
 }
 
-void Measurement::setDeviceID(int id) {
+void Measurement::SetDeviceID(int id) {
     mDevice_id = id;
+}
+
+void Measurement::RecordTime() {
+    while(!getLocalTime(&mTime)){
+        Serial.println("Failed to get time data, retrying...");
+    }
 }
 
 nlohmann::json Measurement::Serialize() const {

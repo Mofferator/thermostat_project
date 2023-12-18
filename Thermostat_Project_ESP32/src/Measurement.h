@@ -9,7 +9,8 @@
 class Measurement {
 public:
     Measurement(ClosedCube_HDC1080& hdc1080, int device_id);
-    void setDeviceID(int id);
+    void SetDeviceID(int id);
+    void RecordTime();
     nlohmann::json Serialize() const;
 private:
     // Functions
