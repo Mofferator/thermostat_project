@@ -11,7 +11,8 @@ db = mysql.connector.connect(
   host="mysql",
   user="root",
   password=open('/secrets/db_root_password.txt').readline(),
-  database='Thermostat_Project'
+  database='Thermostat_Project',
+  port = 3307
 )
 
 @app.route('/', methods=['GET'])
@@ -56,7 +57,7 @@ def add_data():
     data = request.get_json()
     print(request)
     # create tuple of values from request
-    values = (data["device_id"], data["date_info"], data["temperature"])
+    values = (data["device_id"], data["date_info"], data["temperature_C"])
     # SQL statement to insert data into database
     # event_id field is autopopulated by the SQL server on entry
     sql = '''
