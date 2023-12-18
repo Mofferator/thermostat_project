@@ -6,18 +6,21 @@ TODO:
 */
 
 #include <Arduino.h>
-#include <EEPROM.h>
+#include <iostream>
+#include <ROMTransactions.h>
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <time.h>
-#include <ArduinoJson-v6.21.2.h>
 #include <ClosedCube_HDC1080.h>
 #include <secrets.h>
 #include <Measurement.h>
 #include <json.hpp>
 #include <stdexcept>
 
+
+////////////////// ROM /////////////////
 #define EEPROM_SIZE 2
+ROMTransactions ROM(EEPROM_SIZE);
 
 ////////////////// TEMP SENSOR /////////////////
 #define TEMP_SENSOR_ADDR 0x40 // I2C Address of the HDC1080
@@ -38,7 +41,7 @@ WiFiClient client;
 
 
 /////////////// TIME SERVER DETAILS ///////////
-const char* ntpServer = "pool.ntp.org";
+const char* ntpServer = "time-b-g.nist.gov";
 const long  gmtOffset_sec = 0;
 const int   daylightOffset_sec = 0;
 ///////////////////////////////////////////////
@@ -62,26 +65,6 @@ String HOST_NAME = HOST; // hostname of web server:
 String PATH_NAME   = "/";
 //////////////////////////////////////////////////////////////////
 
-
-void write_int(int val, int addr){
-  byte byte0 = val >> 8;
-  
-  EEPROM.write(addr, byte0);
-
-  byte byte1 = val & 0xFF;
-  EEPROM.write(addr + 1, byte1);
-  EEPROM.commit();
-  Serial.println(byte0);
-  Serial.println(byte1);
-}
-
-int read_int(int addr)
-{
-  byte byte0 = EEPROM.read(addr);
-  byte byte1 = EEPROM.read(addr + 1);
-  return (byte0 << 8) + byte1;
-}
-
 int negotiate_device_id() {
   HTTPClient http;
   String mac = WiFi.macAddress();
@@ -90,19 +73,19 @@ int negotiate_device_id() {
   Serial.print("Response Code: ");
   Serial.println(resp);
   if (resp == 200) {
-    DynamicJsonDocument doc(1024);
     String payload = http.getString();
     Serial.print(payload);
-    deserializeJson(doc, payload);
-    if (doc.containsKey("error")){
-      String err = doc["error"];
+    auto response = nlohmann::json::parse(payload);
+    if (response.contains("error")){
+      String err = response["error"].get<std::string>().c_str();
       Serial.println("ERROR:");
       Serial.print(err);
       digitalWrite(ERROR_PIN, HIGH);
       return 0;
     }
     else {
-      int device_id = doc["device_id"];
+      int device_id = response["device_id"].get<int>();
+      
       Serial.print("Recieved new device ID: ");
       Serial.println(device_id);
       return device_id;
@@ -111,44 +94,6 @@ int negotiate_device_id() {
   else {
     return 0;
   }
-}
-
-String FormatLocalTime(){
-  struct tm timeinfo;
-  if(!getLocalTime(&timeinfo)){
-    Serial.println("Failed to obtain time");
-    return "";
-  }
-  int8_t H = timeinfo.tm_hour;
-  int8_t M = timeinfo.tm_min;
-  int8_t S = timeinfo.tm_sec;
-
-  int8_t d = timeinfo.tm_mday;
-  int8_t m = timeinfo.tm_mon + 1;
-  int16_t y = timeinfo.tm_year +1900;
-  
-  String output = "";
-  output += y;
-  output += "-";
-  output += m;
-  output += "-";
-  output += d;
-  output += " ";
-  output += H;
-  output += ":";
-  output += M;
-  output += ":";
-  output += S;
-  return output;
-}
-
-String get_real_time() {
-  configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
-  return FormatLocalTime();
-}
-
-float read_temperature() {
-  return 20.0; // TODO: make this a real function
 }
 
 void send_data(nlohmann::json data) {
@@ -163,25 +108,24 @@ void send_data(nlohmann::json data) {
 
   int resp = http.POST(payload);
 
-  DynamicJsonDocument doc(1024);
-
   Serial.print("Response Code: ");
   Serial.println(resp);
   payload = http.getString().c_str();
-  deserializeJson(doc, payload);
-  if (doc.containsKey("error")) {
+  nlohmann::json response(payload);
+
+  if (response.contains("error")) {
     Serial.print("Error: ");
-    String err = doc["error"];
+    String err = response["error"].get<std::string>().c_str();
     if (err == "UNKNOWN_DEVICE_ID")
     {
       Serial.println("Unrecognized device ID, fetching new ID...");
       device_id = negotiate_device_id();
-      write_int(device_id, device_id_addr);
+      ROM.WriteInt(device_id, device_id_addr);
     }
   }
-  else if (doc.containsKey("msg"))
+  else if (response.contains("msg"))
   {
-    String msg = doc["msg"];
+    String msg = response["msg"].get<std::string>().c_str();
     Serial.println(msg);
   }
   
@@ -189,7 +133,6 @@ void send_data(nlohmann::json data) {
 
 void setup() {
   Serial.begin(9600);
-  EEPROM.begin(EEPROM_SIZE);
   Serial.println("Attempting to connect to WPA network...");
   Serial.print("SSID: ");
   Serial.println(ssid);
@@ -208,9 +151,10 @@ void setup() {
   while (millis() < start + 1500){
     // wait 1.5s for wifi to connect
   }
-  String time = get_real_time();
-  Serial.println(time);
-  device_id = read_int(device_id_addr);
+
+  configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
+
+  device_id = ROM.ReadInt(device_id_addr);
 
   // Check for default device_id
   // If found, negotiate a new id from server
@@ -222,10 +166,9 @@ void setup() {
       while (true){} // do nothing 
     }
     else {
-      write_int(device_id, device_id_addr);
-      EEPROM.commit();
+      ROM.WriteInt(device_id, device_id_addr);
       Serial.print("Wrote ");
-      Serial.print(read_int(device_id_addr));
+      Serial.print(ROM.ReadInt(device_id_addr));
       Serial.print(" at address 0x");
       Serial.println(device_id_addr);
     }
@@ -235,7 +178,6 @@ void setup() {
     Serial.print("Loaded device ID from flash: ");
     Serial.println(device_id);
   }
-  send_data(20);
 }
 
 void loop() {

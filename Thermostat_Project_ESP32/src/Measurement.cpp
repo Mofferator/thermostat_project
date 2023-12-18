@@ -2,8 +2,8 @@
 #include <string.h>
 
 Measurement::Measurement(ClosedCube_HDC1080& hdc1080, int device_id) {
-    if(!getLocalTime(&mTime)){
-        Serial.println("Failed to get time data");
+    while(!getLocalTime(&mTime)){
+        Serial.println("Failed to get time data, retrying...");
     }
     mDevice_id = device_id;
     mTemperature_hdc = hdc1080.readT();
